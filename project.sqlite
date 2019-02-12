@@ -1,0 +1,94 @@
+SELECT *
+FROM patients
+LIMIT 5;
+SELECT *
+FROM panels 
+LIMIT 5;
+SELECT *
+FROM recommended_values
+LIMIT 5;
+
+DELETE FROM panels
+WHERE ID = 'ID';
+SELECT * 
+FROM panels 
+LIMIT 5;
+
+UPDATE patients 
+SET Status = "active" 
+WHERE ID = 7;
+
+ALTER TABLE patients
+RENAME TO active_patients;
+SELECT * 
+FROM patients 
+WHERE ID = 7;
+
+CREATE TABLE inactive_patients
+AS SELECT * 
+FROM patients 
+WHERE Status = "inactive";
+DELETE FROM patients
+WHERE status = "inactive";
+
+
+WITH total_active AS (
+   SELECT COUNT(ID) AS 'active'
+   FROM active_patients
+),
+total_inactive AS (
+   SELECT COUNT(ID) AS 'inactive'
+   FROM inactive_patients
+),
+total_patients AS (
+   SELECT total_active.active + total_inactive.inactive AS 'total'
+   FROM total_active, total_inactive
+)
+SELECT 
+    (total_active.active*100 / total_patients.total) AS 'percent_active', 
+    (total_inactive.inactive*100 / total_patients.total) AS 'percent_inactive'
+FROM total_active, total_inactive, total_patients;
+
+SELECT *
+FROM active_patients 
+WHERE ID = (SELECT MAX(ID) 
+            FROM active_patients);
+
+DELETE FROM active_patients 
+WHERE Name IN 
+(SELECT Name FROM active_patients LIMIT 1);
+SELECT * FROM active_patients WHERE ID = (SELECT max(ID) FROM active_patients);
+
+SELECT patient_ID
+FROM panels
+GROUP BY patient_ID
+HAVING COUNT (patient_ID) > 1;
+
+ALTER TABLE panels 
+ADD COLUMN LDL DECIMAL(5, 2);
+
+UPDATE panels 
+SET LDL = panels.Cholesterol - (panels.HDL + panels.Triglycerides/5);
+
+SELECT 
+    active_patients.Name AS 'Name', 
+    ROUND(LDL) AS 'LDL', 
+    active_patients.Address AS 'Address',
+    active_patients.Phone AS 'Phone'
+FROM 
+    panels, 
+    (SELECT Borderline_High, High FROM recommended_values WHERE Lipid = "LDL") rv
+JOIN active_patients ON panels.patient_ID = active_patients.ID
+GROUP BY 
+    LDL, 
+    active_patients.Name 
+HAVING LDL >= rv.Borderline_High
+ORDER BY LDL DESC;
+
+SELECT 
+    COUNT(CASE WHEN (LDL >= rv.Borderline_High AND LDL < rv.High) THEN LDL END) AS Borderline_High,
+    COUNT(CASE WHEN LDL >= rv.High THEN LDL END) AS High
+FROM 
+    panels, 
+    (SELECT Borderline_High, High FROM recommended_values WHERE Lipid = "LDL") rv;
+    
